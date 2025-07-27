@@ -5,18 +5,43 @@ os.makedirs(os.path.join('output', 'Bible'), exist_ok = True)
 def create_book(name):
     os.makedirs(os.path.join('output', 'Bible', name), exist_ok = True)
 
-def write_chapter(book, book_folder_name, chapter_number, text, is_last_chapter = False):
-    name = f'{book} {chapter_number}' # maybe I don't need this variable, we'll see
-    with open(os.path.join('output', 'Bible', book_folder_name, name + '.md'), "w", encoding="utf-8") as file:
-        top = '\n---\n'
-        file.write(top + text)
+def write_chapter(index):
+    global chapters
+
+    with open(os.path.join('output', 'Bible', chapters[index].book_folder_name, chapters[i].name + '.md'), "w", encoding="utf-8") as file:
+        # 🡠 side
+        if index != 0:
+            prev_book = chapters[index - 1].book
+            prev_name = chapters[index - 1].name
+            if prev_book == chapters[index].book:
+                top = f'[[{prev_name}|🡠]] '
+            else:
+                top = f'[[{prev_name}|🡠 {prev_name}]] | '
+        else:
+            top = '  '
+
+        # middle
+        top += f'**{chapters[i].name}**'
+
+        # 🡠 side
+        if index != len(chapters) - 1:
+            next_book = chapters[index + 1].book
+            next_name = chapters[index + 1].name
+            if next_book == chapters[index].book:
+                top += f' [[{next_name}|🡢]]'
+            else:
+                top += f' | [[{next_name}|{next_name} 🡢]]'
+
+        top += '\n\n---\n'
+
+        file.write(top + chapters[index].text)
 
 with open(os.path.join('output', 'epub.md'), 'r', encoding='utf-8') as file:
     paragraphs = file.read().split('\n')
 
 def parse_paragraph(paragraph):
     chapter_book, text = paragraph.split(' New American Standard Bible ', 1)
-    book, chapter_number = chapter_book.rsplit(' ', 1)
+    book, number = chapter_book.rsplit(' ', 1)
 
     text = text.split(' ')
     for i in range(len(text)):
@@ -24,33 +49,37 @@ def parse_paragraph(paragraph):
             text[i] = '\n###### ' + text[i] + '\n'
             if i == len(text) - 1: text[i] += '\n' #TODO: Is there a \n at the beginning of each chapter?
     
-    return book, int(chapter_number), ' '.join(text)
+    return book, number, ' '.join(text)
 
-book = ''
-book_folder_name = ''
+class Chapter():
+    def __init__(self, book, book_folder_name, number, text):
+        self.book = book
+        self.book_folder_name = book_folder_name
+        self.number = number
+        self.text = text
+        self.name = self.book + ' ' + self.number
+
+chapters = []
+
 book_index = 0
-chapter_number = 0
-chapter_text = ''
 
 for paragraph in paragraphs:
     if paragraph == '' or paragraph == '---': continue
 
-    new_book, new_chapter_number, text = parse_paragraph(paragraph)
+    book, number, text = parse_paragraph(paragraph)
 
-    if new_book != book:
+    if len(chapters) == 0 or book != chapters[-1].book:
         book_index += 1
-        book = new_book
         book_folder_name = f'{str(book_index).zfill(2)} - {book}'
         create_book(book_folder_name)
-        chapter_number = 1
-        chapter_text = text
+        chapters.append(Chapter(book, book_folder_name, '1', text))
 
-    elif new_chapter_number != chapter_number:
-        chapter_number = new_chapter_number
-        chapter_text = text
-
+    elif number != chapters[-1].number:
+        chapters.append(Chapter(book, chapters[-1].book_folder_name, number, text))
     else:
-        chapter_text += text
+        chapters[-1].text += text
     
-    write_chapter(book, book_folder_name, chapter_number, chapter_text)
-    
+# write_chapter(book, book_folder_name, chapter_number, chapter_text)
+
+for i in range(len(chapters)):
+    write_chapter(i)
